@@ -31,6 +31,7 @@ public class HbaseDemo {
 
     }
 
+    //清除并插入测试数据
     private static void createDemoTable() throws IOException {
         String tableNameString = "demoTable";
         if (helper.existsTable(tableNameString))
@@ -86,6 +87,7 @@ public class HbaseDemo {
         Delete delete = new Delete(Bytes.toBytes("row1"));
         delete.addColumns(Bytes.toBytes("cf1"), Bytes.toBytes("qual4"));
 
+        //RowMutations这个版本还没定型
         RowMutations mutations = new RowMutations(Bytes.toBytes("row1"));
         mutations.add(put);
         mutations.add(delete);
