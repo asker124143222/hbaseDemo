@@ -2,7 +2,10 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.RowMutations;
+import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
@@ -25,8 +28,10 @@ public class HbaseDemo {
 
         helper = HBaseHelper.getHBaseHelper(conf);
 
+        //创建测试数据
 //        createDemoTable();
 
+        //测试cas
         CheckAndMutateExample();
 
     }
@@ -57,7 +62,7 @@ public class HbaseDemo {
         Put put = null;
 
         put = new Put(Bytes.toBytes("row1"));
-        put.addColumn(Bytes.toBytes("cf1"), Bytes.toBytes("qual4"), 4, Bytes.toBytes("val1"));
+        put.addColumn(Bytes.toBytes("cf1"), Bytes.toBytes("qual4"), 1, Bytes.toBytes("val1"));
 //        如果row1 cf1 qual4 不存在值就插入put数据
         res = table.checkAndMutate(Bytes.toBytes("row1"), Bytes.toBytes("cf1"))
                 .qualifier(Bytes.toBytes("qual4"))
@@ -65,14 +70,16 @@ public class HbaseDemo {
                 .thenPut(put);
         System.out.println("1 result is (expected true) :" + res);
 
-        //如果row1 cf1 qual1 val1存在就插入put，因为这个value已经存在所以可以插入，结果返回true，时间戳变为4
+//        put = new Put(Bytes.toBytes("row1"));
+//        put.addColumn(Bytes.toBytes("cf1"), Bytes.toBytes("qual1"), 4, Bytes.toBytes("val1"));
+//        //如果row1 cf1 qual1 val1存在就插入put，因为这个value已经存在所以可以插入，结果返回true，时间戳变为4
 //        res = table.checkAndMutate(Bytes.toBytes("row1"), Bytes.toBytes("cf1"))
 //                .qualifier(Bytes.toBytes("qual1")).ifEquals(Bytes.toBytes("val1"))
 //                .thenPut(put);
 //        System.out.println("2 result is (expected true) :" + res);
 
 //        put = new Put(Bytes.toBytes("row1"));
-//        put.addColumn(Bytes.toBytes("cf1"),Bytes.toBytes("qual1"),4,Bytes.toBytes("val2"));
+//        put.addColumn(Bytes.toBytes("cf1"),Bytes.toBytes("qual1"),5,Bytes.toBytes("val2"));
 //        ////如果row1 cf1 qual1 不等于val2在就插入put
 //        res = table.checkAndMutate(Bytes.toBytes("row1"), Bytes.toBytes("cf1"))
 //                .qualifier(Bytes.toBytes("qual1"))
