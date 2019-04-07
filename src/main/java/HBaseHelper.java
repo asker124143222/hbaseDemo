@@ -287,6 +287,17 @@ public class HBaseHelper implements Closeable {
         }
     }
 
+    public void dumpCells(String key,List<Cell> list){
+        for(Cell cell:list){
+            String columnFamily = Bytes.toString(cell.getFamilyArray(),cell.getFamilyOffset(),cell.getFamilyLength());
+            String columnName = Bytes.toString(cell.getQualifierArray(),cell.getQualifierOffset(),cell.getQualifierLength());
+            String value = Bytes.toString(cell.getValueArray(),cell.getValueOffset(),cell.getValueLength());
+            System.out.printf("[key:%s]\t[family:%s] [column:%s] [value:%s]\n",
+                    key,columnFamily,columnName,value);
+        }
+    }
+
+
 
     //批量插入数据,list里每个map就是一条数据，并且按照rowKey columnFamily columnName columnValue放入map的key和value
     public void bulkInsert(String tableNameString, List<Map<String, Object>> list) throws IOException {
@@ -351,12 +362,50 @@ public class HBaseHelper implements Closeable {
         Table table = connection.getTable(TableName.valueOf(tableNameString));
 
         Get get = new Get(Bytes.toBytes(rowKey));
+
         Result result = table.get(get);
+
 //        Cell[] cells = result.rawCells();
         List<Cell> list = result.listCells();
         table.close();
         return list;
     }
+
+    //根据rowKey，family,qualifier获取列值
+    public List<Cell> getRowByKeyAndColumn(String tableNameString,String rowKey,String cf,String clName) throws IOException{
+        Table table = connection.getTable(TableName.valueOf(tableNameString));
+        Get get = new Get(Bytes.toBytes(rowKey));
+        get.addColumn(Bytes.toBytes(cf),Bytes.toBytes(clName));
+
+        Result result = table.get(get);
+        List<Cell> list = result.listCells();
+        table.close();
+        return list;
+    }
+
+    //根据rowkey，获取所有列族和列数据
+    public Map<String,List<Cell>> getRowByKeys(String tableNameString,String... rowKeys) throws IOException{
+        Table table = connection.getTable(TableName.valueOf(tableNameString));
+
+        List<Get> gets = new ArrayList<>();
+        for(String rowKey:rowKeys){
+            Get get = new Get(Bytes.toBytes(rowKey));
+            gets.add(get);
+        }
+
+
+        Result[] results = table.get(gets);
+
+        Map<String,List<Cell>> map = new HashMap<>();
+        for(Result res : results){
+            map.put(Bytes.toString(res.getRow()),res.listCells());
+        }
+
+        table.close();
+        return map;
+    }
+
+
 
     //根据rowKey过滤数据，rowKey可以使用正则表达式
     //返回rowKey和Cells的键值对
