@@ -270,7 +270,7 @@ public class HBaseHelper implements Closeable {
     public void dump(TableName table) throws IOException {
         try (
                 Table t = connection.getTable(table);
-                ResultScanner scanner = t.getScanner(new Scan())
+                ResultScanner scanner = t.getScanner(new Scan());
         ) {
             for (Result result : scanner) {
                 dumpResult(result);
@@ -287,16 +287,15 @@ public class HBaseHelper implements Closeable {
         }
     }
 
-    public void dumpCells(String key,List<Cell> list){
-        for(Cell cell:list){
-            String columnFamily = Bytes.toString(cell.getFamilyArray(),cell.getFamilyOffset(),cell.getFamilyLength());
-            String columnName = Bytes.toString(cell.getQualifierArray(),cell.getQualifierOffset(),cell.getQualifierLength());
-            String value = Bytes.toString(cell.getValueArray(),cell.getValueOffset(),cell.getValueLength());
+    public void dumpCells(String key, List<Cell> list) {
+        for (Cell cell : list) {
+            String columnFamily = Bytes.toString(cell.getFamilyArray(), cell.getFamilyOffset(), cell.getFamilyLength());
+            String columnName = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
+            String value = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
             System.out.printf("[key:%s]\t[family:%s] [column:%s] [value:%s]\n",
-                    key,columnFamily,columnName,value);
+                    key, columnFamily, columnName, value);
         }
     }
-
 
 
     //批量插入数据,list里每个map就是一条数据，并且按照rowKey columnFamily columnName columnValue放入map的key和value
@@ -326,7 +325,7 @@ public class HBaseHelper implements Closeable {
     }
 
     //根据rowKey删除所有行数据
-    public void deleteByKey(String tableNameString,String rowKey) throws IOException{
+    public void deleteByKey(String tableNameString, String rowKey) throws IOException {
         Table table = connection.getTable(TableName.valueOf(tableNameString));
         Delete delete = new Delete(Bytes.toBytes(rowKey));
 
@@ -335,7 +334,7 @@ public class HBaseHelper implements Closeable {
     }
 
     //根据rowKey和列族删除所有行数据
-    public void deleteByKeyAndFamily(String tableNameString,String rowKey,String columnFamily) throws IOException{
+    public void deleteByKeyAndFamily(String tableNameString, String rowKey, String columnFamily) throws IOException {
         Table table = connection.getTable(TableName.valueOf(tableNameString));
         Delete delete = new Delete(Bytes.toBytes(rowKey));
         delete.addFamily(Bytes.toBytes(columnFamily));
@@ -345,12 +344,12 @@ public class HBaseHelper implements Closeable {
     }
 
     //根据rowKey、列族删除多个列的数据
-    public void deleteByKeyAndFC(String tableNameString,String rowKey,
-                                 String columnFamily,List<String> columnNames) throws IOException{
+    public void deleteByKeyAndFC(String tableNameString, String rowKey,
+                                 String columnFamily, List<String> columnNames) throws IOException {
         Table table = connection.getTable(TableName.valueOf(tableNameString));
         Delete delete = new Delete(Bytes.toBytes(rowKey));
-        for(String columnName:columnNames){
-            delete.addColumns(Bytes.toBytes(columnFamily),Bytes.toBytes(columnName));
+        for (String columnName : columnNames) {
+            delete.addColumns(Bytes.toBytes(columnFamily), Bytes.toBytes(columnName));
         }
         table.delete(delete);
         table.close();
@@ -358,7 +357,7 @@ public class HBaseHelper implements Closeable {
 
 
     //根据rowkey，获取所有列族和列数据
-    public List<Cell> getRowByKey(String tableNameString,String rowKey) throws IOException{
+    public List<Cell> getRowByKey(String tableNameString, String rowKey) throws IOException {
         Table table = connection.getTable(TableName.valueOf(tableNameString));
 
         Get get = new Get(Bytes.toBytes(rowKey));
@@ -372,10 +371,10 @@ public class HBaseHelper implements Closeable {
     }
 
     //根据rowKey，family,qualifier获取列值
-    public List<Cell> getRowByKeyAndColumn(String tableNameString,String rowKey,String cf,String clName) throws IOException{
+    public List<Cell> getRowByKeyAndColumn(String tableNameString, String rowKey, String cf, String clName) throws IOException {
         Table table = connection.getTable(TableName.valueOf(tableNameString));
         Get get = new Get(Bytes.toBytes(rowKey));
-        get.addColumn(Bytes.toBytes(cf),Bytes.toBytes(clName));
+        get.addColumn(Bytes.toBytes(cf), Bytes.toBytes(clName));
 
         Result result = table.get(get);
         List<Cell> list = result.listCells();
@@ -384,61 +383,64 @@ public class HBaseHelper implements Closeable {
     }
 
     //根据rowkey，获取所有列族和列数据
-    public Map<String,List<Cell>> getRowByKeys(String tableNameString,String... rowKeys) throws IOException{
+    public Map<String, List<Cell>> getRowByKeys(String tableNameString, String... rowKeys) throws IOException {
         Table table = connection.getTable(TableName.valueOf(tableNameString));
 
         List<Get> gets = new ArrayList<>();
-        for(String rowKey:rowKeys){
+        for (String rowKey : rowKeys) {
             Get get = new Get(Bytes.toBytes(rowKey));
             gets.add(get);
         }
 
-
         Result[] results = table.get(gets);
 
-        Map<String,List<Cell>> map = new HashMap<>();
-        for(Result res : results){
-            map.put(Bytes.toString(res.getRow()),res.listCells());
+        Map<String, List<Cell>> map = new HashMap<>();
+        for (Result res : results) {
+            map.put(Bytes.toString(res.getRow()), res.listCells());
         }
 
         table.close();
         return map;
     }
 
-
+    private Map<String, List<Cell>> formatToMap(String tableNameString,Scan scan) throws IOException{
+        //确保table和scanner被释放
+        try (Table table = connection.getTable(TableName.valueOf(tableNameString));
+             ResultScanner scanner = table.getScanner(scan);
+        ) {
+            Map<String, List<Cell>> map = new HashMap<>();
+            for (Result result : scanner) {
+                map.put(Bytes.toString(result.getRow()), result.listCells());
+            }
+            return map;
+        }
+    }
 
     //根据rowKey过滤数据，rowKey可以使用正则表达式
     //返回rowKey和Cells的键值对
-    public Map<String,List<Cell>> filterByRowKeyRegex(String tableNameString,String rowKey,CompareOperator operator) throws IOException{
-        Table table = connection.getTable(TableName.valueOf(tableNameString));
+    public Map<String, List<Cell>> filterByRowKeyRegex(String tableNameString, String rowKey, CompareOperator operator) throws IOException {
+
         Scan scan = new Scan();
         //使用正则
-        RowFilter filter = new RowFilter(operator,new RegexStringComparator(rowKey));
+        RowFilter filter = new RowFilter(operator, new RegexStringComparator(rowKey));
 
         //包含子串匹配,不区分大小写。
 //        RowFilter filter = new RowFilter(operator,new SubstringComparator(rowKey));
 
         scan.setFilter(filter);
 
-        ResultScanner scanner = table.getScanner(scan);
-        Map<String,List<Cell>> map = new HashMap<>();
-        for(Result result:scanner){
-            map.put(Bytes.toString(result.getRow()),result.listCells());
-        }
-        table.close();
-        return map;
+       return formatToMap(tableNameString,scan);
     }
 
     //根据列族，列名，列值（支持正则）查找数据
     //返回值：如果查询到值，会返回所有匹配的rowKey下的各列族、列名的所有数据（即使查询的时候这些列族和列名并不匹配）
-    public Map<String,List<Cell>> filterByValueRegex(String tableNameString,String family,String colName,
-                                                String value,CompareOperator operator) throws IOException{
-        Table table = connection.getTable(TableName.valueOf(tableNameString));
+    public Map<String, List<Cell>> filterByValueRegex(String tableNameString, String family, String colName,
+                                                      String value, CompareOperator operator) throws IOException {
         Scan scan = new Scan();
 
         //正则匹配
         SingleColumnValueFilter filter = new SingleColumnValueFilter(Bytes.toBytes(family),
-                Bytes.toBytes(colName),operator,new RegexStringComparator(value));
+                Bytes.toBytes(colName), operator, new RegexStringComparator(value));
 
         //完全匹配
 //        SingleColumnValueFilter filter = new SingleColumnValueFilter(Bytes.toBytes(family),
@@ -450,17 +452,11 @@ public class HBaseHelper implements Closeable {
         filter.setFilterIfMissing(true);
         scan.setFilter(filter);
 
-        ResultScanner scanner = table.getScanner(scan);
-        Map<String,List<Cell>> map = new HashMap<>();
-        for(Result result:scanner){
-            map.put(Bytes.toString(result.getRow()),result.listCells());
-        }
-        return map;
+        return formatToMap(tableNameString,scan);
     }
 
     //根据列名前缀过滤数据
-    public Map<String,List<Cell>> filterByColumnPrefix(String tableNameString,String prefix) throws IOException{
-        Table table = connection.getTable(TableName.valueOf(tableNameString));
+    public Map<String, List<Cell>> filterByColumnPrefix(String tableNameString, String prefix) throws IOException {
 
         //列名前缀匹配
         ColumnPrefixFilter filter = new ColumnPrefixFilter(Bytes.toBytes(prefix));
@@ -474,25 +470,19 @@ public class HBaseHelper implements Closeable {
         Scan scan = new Scan();
         scan.setFilter(filter);
 
-        ResultScanner scanner = table.getScanner(scan);
-        Map<String,List<Cell>> map = new HashMap<>();
-        for(Result result:scanner){
-            map.put(Bytes.toString(result.getRow()),result.listCells());
-        }
-        return map;
+        return formatToMap(tableNameString,scan);
     }
 
     //根据列名范围以及列名前缀过滤数据
-    public Map<String,List<Cell>> filterByPrefixAndRange(String tableNameString,String colPrefix,
-                                                             String minCol,String maxCol) throws IOException{
-        Table table = connection.getTable(TableName.valueOf(tableNameString));
+    public Map<String, List<Cell>> filterByPrefixAndRange(String tableNameString, String colPrefix,
+                                                          String minCol, String maxCol) throws IOException {
 
         //列名前缀匹配
         ColumnPrefixFilter filter = new ColumnPrefixFilter(Bytes.toBytes(colPrefix));
 
         //列名范围扫描，上下限范围包括
-        ColumnRangeFilter rangeFilter = new ColumnRangeFilter(Bytes.toBytes(minCol),true,
-                Bytes.toBytes(maxCol),true);
+        ColumnRangeFilter rangeFilter = new ColumnRangeFilter(Bytes.toBytes(minCol), true,
+                Bytes.toBytes(maxCol), true);
 
         FilterList filterList = new FilterList(FilterList.Operator.MUST_PASS_ALL);
         filterList.addFilter(filter);
@@ -501,12 +491,7 @@ public class HBaseHelper implements Closeable {
         Scan scan = new Scan();
         scan.setFilter(filterList);
 
-        ResultScanner scanner = table.getScanner(scan);
-        Map<String,List<Cell>> map = new HashMap<>();
-        for(Result result:scanner){
-            map.put(Bytes.toString(result.getRow()),result.listCells());
-        }
-        return map;
+        return formatToMap(tableNameString,scan);
     }
 
 
