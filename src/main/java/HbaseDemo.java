@@ -4,9 +4,7 @@ import org.apache.hadoop.hbase.CompareOperator;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.PageFilter;
-import org.apache.hadoop.hbase.filter.QualifierFilter;
+import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
@@ -49,7 +47,14 @@ public class HbaseDemo {
 //        createTestTable("testtable");
 
         //分页过滤
-        pageFilterData();
+//        pageFilterData();
+//            跳转过滤
+//        skipFilterData();
+//         多个过滤器组合
+//        mutilFilterData();
+        //自定义过滤
+        customFilterData();
+
     }
 
     //清除并插入测试数据
@@ -73,6 +78,7 @@ public class HbaseDemo {
         helper.dump(tableNameString);
     }
 
+    //创建testtable测试数据
     private static void createTestTable(String tableNameString) throws IOException{
         if(tableNameString.isEmpty()) tableNameString = "testtable";
         if(helper.existsTable(tableNameString)){
@@ -270,7 +276,119 @@ public class HbaseDemo {
             scanner.close();
             if(localRows==0)break;
         }
+        table.close();
         System.out.println("total rows: " + totalRows);
     }
 
+
+    //跳转过滤
+    private static void skipFilterData() throws IOException{
+        Table table = helper.getConnection().getTable(TableName.valueOf("demoTable"));
+        Filter filter = new ValueFilter(CompareOperator.NOT_EQUAL,new BinaryComparator(Bytes.toBytes("val2")));
+
+        Scan scan = new Scan();
+        scan.setFilter(filter);
+
+        ResultScanner scanner1 = table.getScanner(scan);
+        System.out.println("Results of scan #1:");
+        int n = 0;
+        for (Result result : scanner1) {
+            for (Cell cell : result.rawCells()) {
+                System.out.println("Cell: " + cell + ", Value: " +
+                        Bytes.toString(cell.getValueArray(), cell.getValueOffset(),
+                                cell.getValueLength()));
+                n++;
+            }
+        }
+        scanner1.close();
+
+        //应用跳转过滤
+        Filter skipFilter  = new SkipFilter(filter);
+        Scan scan2 = new Scan();
+        scan2.setFilter(skipFilter);
+        ResultScanner scanner2 = table.getScanner(scan2);
+        System.out.println("Total cell count for scan #1: " + n);
+        n = 0;
+        System.out.println("Results of scan #2:");
+        for (Result result : scanner2) {
+            for (Cell cell : result.rawCells()) {
+                System.out.println("Cell: " + cell + ", Value: " +
+                        Bytes.toString(cell.getValueArray(), cell.getValueOffset(),
+                                cell.getValueLength()));
+                n++;
+            }
+        }
+        scanner2.close();
+        table.close();
+        System.out.println("Total cell count for scan #2: " + n);
+
+    }
+
+    //多个过滤器
+    //使用FilterList要保证过滤器的顺序需要使用List<Filter>
+    private static void mutilFilterData() throws IOException{
+        Table table = helper.getConnection().getTable(TableName.valueOf("testtable"));
+
+        List<Filter> filters = new ArrayList<Filter>();
+
+        Filter filter1 = new RowFilter(CompareOperator.GREATER_OR_EQUAL,
+                new BinaryComparator(Bytes.toBytes("rowKey60")));
+        filters.add(filter1);
+
+        Filter filter2 = new RowFilter(CompareOperator.LESS_OR_EQUAL,
+                new BinaryComparator(Bytes.toBytes("rowKey69")));
+        filters.add(filter2);
+
+        Filter filter3 = new QualifierFilter(CompareOperator.EQUAL,
+                new RegexStringComparator("username"));
+        filters.add(filter3);
+
+        FilterList filterList1 = new FilterList(FilterList.Operator.MUST_PASS_ALL,filters);
+
+        Scan scan = new Scan();
+        scan.setFilter(filterList1);
+        ResultScanner scanner1 = table.getScanner(scan);
+        System.out.println("Results of scan #1 - MUST_PASS_ALL:");
+        int n = 0;
+        for (Result result : scanner1) {
+            for (Cell cell : result.rawCells()) {
+                System.out.println("Cell: " + cell + ", Value: " +
+                        Bytes.toString(cell.getValueArray(), cell.getValueOffset(),
+                                cell.getValueLength()));
+                n++;
+            }
+        }
+        scanner1.close();
+        table.close();
+
+    }
+
+    //使用自定义过滤器，只显示匹配列值的行
+    private static void customFilterData() throws IOException{
+        Table table = helper.getConnection().getTable(TableName.valueOf("testtable"));
+
+        List<Filter> filters = new ArrayList<Filter>();
+
+        Filter filter1 = new CustomFilter(Bytes.toBytes("user30"));
+        filters.add(filter1);
+
+        Filter filter2 = new CustomFilter(Bytes.toBytes("user20"));
+        filters.add(filter2);
+
+        Filter filter3 = new CustomFilter(Bytes.toBytes("user90"));
+        filters.add(filter3);
+
+        FilterList filterList = new FilterList(
+                FilterList.Operator.MUST_PASS_ONE, filters);
+
+        Scan scan = new Scan();
+        scan.setFilter(filterList);
+        ResultScanner scanner = table.getScanner(scan);
+        for(Result result:scanner){
+            helper.dumpResult(result);
+        }
+
+        scanner.close();
+        table.close();
+    }
 }
